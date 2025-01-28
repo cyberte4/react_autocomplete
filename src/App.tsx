@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import debounce from 'lodash.debounce';
 import './App.scss';
 import { peopleFromServer } from './data/people';
@@ -10,18 +10,29 @@ interface Person {
   died: number;
 }
 
-export const App: React.FC = () => {
+export const App: React.FC<{ delay?: number }> = ({ delay = 300 }) => {
   const [query, setQuery] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
-
-  const applyQuery = useCallback(
-    debounce((value: string) => {
-      setAppliedQuery(value);
-    }, 300),
-    [setAppliedQuery],
-  );
-
   const [filteredPeople, setFilteredPeople] = useState(peopleFromServer);
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+
+  const debouncedApplyQuery = useRef<(value: string) => void>();
+
+  // Оновлюємо debounce при зміні `delay`
+  useEffect(() => {
+    debouncedApplyQuery.current = debounce((value: string) => {
+      setAppliedQuery(value);
+    }, delay);
+
+    return () => {
+      debouncedApplyQuery.current?.cancel(); // Очищаємо debounce при зміні delay
+    };
+  }, [delay]);
+
+  const handleQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(event.target.value);
+    debouncedApplyQuery.current?.(event.target.value);
+  };
 
   useEffect(() => {
     if (appliedQuery.trim() === '') {
@@ -34,13 +45,6 @@ export const App: React.FC = () => {
       );
     }
   }, [appliedQuery]);
-
-  const handleQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(event.target.value);
-    applyQuery(event.target.value);
-  };
-
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
 
   const handleSelectPerson = (person: Person) => {
     setSelectedPerson(person);
